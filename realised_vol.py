@@ -12,6 +12,7 @@ import pandas as pd
 import yfinance as yf
 
 #---Creating file---
+
 DATA_PATH = "data/spy.csv"
 
 def load_spy(start="2010-01-01", path=DATA_PATH):
@@ -53,6 +54,34 @@ print(df['var_cc'].nsmallest(5))
 
 for c in ['var_cc', 'var_park', 'var_gk']:
     print(c, np.log(df[c].replace(0, np.nan)).autocorr(lag=1))
+    
+#decided to use parkinsons estimator
+df['log_vol'] = np.log(df['var_park'])
+
+print(df['log_vol'].isna().sum())          # 0
+print(np.isinf(df['log_vol']).sum())       # 0
+print(df['log_vol'].describe())
+
+#---table---
+
+d = pd.DataFrame(index=df.index)
+d['vol_today'] = df['log_vol']
+d['vol_5']     = df['log_vol'].rolling(5).mean()
+d['vol_22']    = df['log_vol'].rolling(22).mean()
+d['target']    = df['log_vol'].shift(-1)
+d = d.dropna()
+
+#checks
+print(len(d))
+assert (d['target'].iloc[:-1].to_numpy() == d['vol_today'].iloc[1:].to_numpy()).all()
+date = d.index[100]
+pos  = df.index.get_loc(date)
+assert np.isclose(d['vol_5'].iloc[100], df['log_vol'].iloc[pos-4:pos+1].mean())
+
+print(d.isna().sum())
+print(np.isinf(d).sum().sum())
+print(d.describe())
+print(d.corr().round(3))
 
 
 
