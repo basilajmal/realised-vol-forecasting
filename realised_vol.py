@@ -107,5 +107,74 @@ print("HAR RMSE:", np.sqrt(mean_squared_error(y, pred_har)))
 print("intercept:", har.intercept_)
 print(dict(zip(FEATURES, har.coef_)))
 
+#---walk forward validation---
+
+#   window        : expanding — train on all rows up to the prediction point
+#   initial train : 1000 rows (~4 years)
+#   refit         : every 21 trading days (~monthly)
+#   prediction    : every day; between refits the model is frozen, features update
+#   no shuffling, no k-fold, no tuning against test performance
+
+START       = 1000
+REFIT_EVERY = 21
+
+preds = np.full(len(y), np.nan)
+model = LinearRegression()
+
+for i in range(START, len(y)):
+    if (i - START) % REFIT_EVERY == 0:
+        model.fit(X[:i], y[:i])
+    preds[i] = model.predict(X[i:i+1])[0]
+
+d['pred_har'] = preds
+
+print(np.isnan(preds).sum())
+print((~np.isnan(preds)).sum())       
+
+i = 2000
+m = LinearRegression().fit(X[:i], y[:i])
+print(m.predict(X[i:i+1])[0], preds[i])
+
+
+
+def walk_forward(model, X, y, start=1000, refit_every=21):
+    preds = np.full(len(y), np.nan)
+    for i in range(start, len(y)):
+        if (i - start) % refit_every == 0:
+            model.fit(X[:i], y[:i])
+        preds[i] = model.predict(X[i:i+1])[0]
+    return preds
+
+def score(preds, y):
+    mask = ~np.isnan(preds)
+    return r2_score(y[mask], preds[mask])
+
+# 1. the honest result
+p_har = walk_forward(LinearRegression(), X, y)
+print("1. HAR walk-forward :", score(p_har, y))
+
+# 2. random walk, same rows
+p_rw = d['vol_today'].to_numpy().copy()
+p_rw[:1000] = np.nan
+print("2. random walk      :", score(p_rw, y))
+
+# 3. leaked feature — target handed to the model as a 4th column
+X_leak = np.column_stack([X, y])
+p_leak = walk_forward(LinearRegression(), X_leak, y)
+print("3. leaked feature   :", score(p_leak, y))
+
+# 4. no time restriction — trains on all 16 years every refit
+def walk_forward_LEAKY(model, X, y, start=1000, refit_every=21):
+    preds = np.full(len(y), np.nan)
+    for i in range(start, len(y)):
+        if (i - start) % refit_every == 0:
+            model.fit(X, y)
+        preds[i] = model.predict(X[i:i+1])[0]
+    return preds
+
+p_full = walk_forward_LEAKY(LinearRegression(), X, y)
+print("4. full-sample fit  :", score(p_full, y))
+
+
 
 
