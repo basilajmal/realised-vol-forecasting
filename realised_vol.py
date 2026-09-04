@@ -83,5 +83,29 @@ print(np.isinf(d).sum().sum())
 print(d.describe())
 print(d.corr().round(3))
 
+#---basleines---
+
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score, mean_squared_error
+
+FEATURES = ['vol_today', 'vol_5', 'vol_22']
+X = d[FEATURES].to_numpy()
+y = d['target'].to_numpy()
+print(X.shape, y.shape)          # (4170, 3) (4170,)
+
+# random walk — no fitting
+pred_rw = d['vol_today'].to_numpy()
+print("RW   R2:", r2_score(y, pred_rw))
+print("RW RMSE:", np.sqrt(mean_squared_error(y, pred_rw)))
+
+# HAR
+har = LinearRegression().fit(X, y)
+pred_har = har.predict(X)
+print("HAR   R2:", r2_score(y, pred_har))
+print("HAR RMSE:", np.sqrt(mean_squared_error(y, pred_har)))
+
+print("intercept:", har.intercept_)
+print(dict(zip(FEATURES, har.coef_)))
+
 
 
