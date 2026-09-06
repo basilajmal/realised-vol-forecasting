@@ -175,6 +175,59 @@ def walk_forward_LEAKY(model, X, y, start=1000, refit_every=21):
 p_full = walk_forward_LEAKY(LinearRegression(), X, y)
 print("4. full-sample fit  :", score(p_full, y))
 
+#---RMSE table---
+
+def evaluate(preds, y, name):
+    mask = ~np.isnan(preds)
+    return {
+        'model': name,
+        'n':     mask.sum(),
+        'RMSE':  np.sqrt(mean_squared_error(y[mask], preds[mask])),
+        'R2':    r2_score(y[mask], preds[mask]),
+    }
+
+results = pd.DataFrame([
+    evaluate(p_rw,  y, 'Random walk'),
+    evaluate(p_har, y, 'HAR'),
+]).set_index('model')
+
+print(results.round(4))
+
+print("typical error factor:", np.exp(results.loc['HAR', 'RMSE']))
+
+#---ML layer---
+
+#ridge
+from sklearn.linear_model import Ridge
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import HistGradientBoostingRegressor
+
+ridge = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
+p_ridge = walk_forward(ridge, X, y)
+
+gbm = HistGradientBoostingRegressor(random_state=0)
+p_gbm = walk_forward(gbm, X, y)
+
+mask = ~np.isnan(p_gbm)
+print("max actual   :", y[mask].max())
+print("max HAR pred :", p_har[mask].max())
+print("max GBM pred :", p_gbm[mask].max())
+
+res = pd.DataFrame({'y': y, 'rw': p_rw, 'har': p_har, 'gbm': p_gbm}, index=d.index)
+res = res[~np.isnan(p_har)]
+
+by_year = res.groupby(res.index.year).apply(lambda g: pd.Series({
+    'n':      len(g),
+    'rw_r2':  r2_score(g['y'], g['rw']),
+    'har_r2': r2_score(g['y'], g['har']),
+    'gbm_r2': r2_score(g['y'], g['gbm']),
+}))
+
+print(by_year.round(3))
+print("HAR beat RW  in", (by_year['har_r2'] > by_year['rw_r2']).sum(),  "of", len(by_year), "years")
+print("HAR beat GBM in", (by_year['har_r2'] > by_year['gbm_r2']).sum(), "of", len(by_year), "years")
+print("GBM beat RW  in", (by_year['gbm_r2'] > by_year['rw_r2']).sum(),  "of", len(by_year), "years")
 
 
 
