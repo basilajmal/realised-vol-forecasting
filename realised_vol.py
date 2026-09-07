@@ -229,5 +229,70 @@ print("HAR beat RW  in", (by_year['har_r2'] > by_year['rw_r2']).sum(),  "of", le
 print("HAR beat GBM in", (by_year['har_r2'] > by_year['gbm_r2']).sum(), "of", len(by_year), "years")
 print("GBM beat RW  in", (by_year['gbm_r2'] > by_year['rw_r2']).sum(),  "of", len(by_year), "years")
 
+#---figures---
+
+import os
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+os.makedirs("figures", exist_ok=True)
+
+BLUE, ORANGE = "#2a78d6", "#eb6834"
+SURFACE, INK, INK2, MUTED, GRID, AXIS = "#fcfcfb", "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7"
+
+mpl.rcParams.update({
+    "figure.facecolor": SURFACE, "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE,
+    "font.size": 10, "axes.titlesize": 11.5, "axes.titlecolor": INK,
+    "axes.labelcolor": INK2, "axes.edgecolor": AXIS,
+    "axes.spines.top": False, "axes.spines.right": False,
+    "xtick.color": MUTED, "ytick.color": MUTED,
+    "grid.color": GRID, "grid.linewidth": 0.8,
+    "legend.frameon": False, "figure.dpi": 150,
+})
+
+fig, ax = plt.subplots(figsize=(6.5, 4))
+xpos, w = np.arange(2), 0.36
+b1 = ax.bar(xpos - w/2 - 0.01, [0.4896, 0.6377], w, color=ORANGE, label="Fitted on all data")
+b2 = ax.bar(xpos + w/2 + 0.01, [0.4858, 0.4204], w, color=BLUE,   label="Walk-forward (honest)")
+
+for bars in (b1, b2):
+    for r in bars:
+        ax.annotate(f"{r.get_height():.3f}", (r.get_x() + r.get_width()/2, r.get_height()),
+                    ha="center", va="bottom", fontsize=9, color=INK2,
+                    xytext=(0, 3), textcoords="offset points")
+
+ax.set_xticks(xpos); ax.set_xticklabels(["HAR", "Gradient boosting"])
+ax.set_ylabel("$R^2$"); ax.set_ylim(0, 0.72)
+ax.set_title("Hindsight inflates the flexible model, not the linear one")
+ax.yaxis.grid(True); ax.set_axisbelow(True); ax.legend(loc="upper left")
+fig.tight_layout(); fig.savefig("figures/hindsight_premium.png", dpi=200)
+
+
+fig, axes = plt.subplots(1, 2, figsize=(9, 3.4))
+v = df['var_park'].dropna()
+axes[0].hist(v * 1e4, bins=120, color=BLUE)
+axes[0].set_xlabel("daily variance  ($\\times 10^{-4}$)")
+for a, t in zip(axes, ["Before: positive and heavily right-skewed", "After: roughly symmetric"]):
+    a.set_title(t); a.set_ylabel("days"); a.yaxis.grid(True); a.set_axisbelow(True)
+fig.tight_layout(); fig.savefig("figures/log_transform.png", dpi=200)
+
+
+ann = lambda v: np.sqrt(252 * np.exp(v))
+s = pd.Series(ann(y), index=d.index)[mask]
+h = pd.Series(ann(p_har), index=d.index)[mask]
+
+fig, axes = plt.subplots(2, 1, figsize=(9, 6.2))
+axes[0].plot(s.index, s.values, lw=0.6, color=BLUE,   label="Realised")
+axes[0].plot(h.index, h.values, lw=1.0, color=ORANGE, label="HAR forecast")
+axes[0].set_title("Out-of-sample forecasts, 2014–2026")
+
+lo, hi = "2020-02-01", "2020-06-30"
+axes[1].plot(s.loc[lo:hi].index, s.loc[lo:hi].values, lw=1.3, color=BLUE,   label="Realised")
+axes[1].plot(h.loc[lo:hi].index, h.loc[lo:hi].values, lw=2.0, color=ORANGE, label="HAR forecast")
+axes[1].set_title("Feb–Jun 2020: the model tracks the regime but never reaches the peak")
+
+for a in axes:
+    a.set_ylabel("annualised volatility")
+    a.yaxis.grid(True); a.set_axisbelow(True); a.legend(loc="upper left")
+fig.tight_layout(); fig.savefig("figures/forecasts.png", dpi=200)
 
 
