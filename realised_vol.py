@@ -269,14 +269,15 @@ fig.tight_layout(); fig.savefig("figures/hindsight_premium.png", dpi=200)
 
 fig, axes = plt.subplots(1, 2, figsize=(9, 3.4))
 v = df['var_park'].dropna()
-axes[0].hist(v * 1e4, bins=120, color=BLUE)
+axes[0].hist(v * 1e4, bins=120, color=BLUE) 
 axes[0].set_xlabel("daily variance  ($\\times 10^{-4}$)")
+axes[1].hist(np.log(v), bins=120, color=BLUE);  axes[1].set_xlabel("log daily variance")
 for a, t in zip(axes, ["Before: positive and heavily right-skewed", "After: roughly symmetric"]):
     a.set_title(t); a.set_ylabel("days"); a.yaxis.grid(True); a.set_axisbelow(True)
 fig.tight_layout(); fig.savefig("figures/log_transform.png", dpi=200)
 
 
-ann = lambda v: np.sqrt(252 * np.exp(v))
+ann = lambda v: 100 * np.sqrt(252 * np.exp(v))
 s = pd.Series(ann(y), index=d.index)[mask]
 h = pd.Series(ann(p_har), index=d.index)[mask]
 
@@ -291,7 +292,7 @@ axes[1].plot(h.loc[lo:hi].index, h.loc[lo:hi].values, lw=2.0, color=ORANGE, labe
 axes[1].set_title("Feb–Jun 2020: the model tracks the regime but never reaches the peak")
 
 for a in axes:
-    a.set_ylabel("annualised volatility")
+    a.set_ylabel("annualised volatility (%)")
     a.yaxis.grid(True); a.set_axisbelow(True); a.legend(loc="upper left")
 fig.tight_layout(); fig.savefig("figures/forecasts.png", dpi=200)
 
